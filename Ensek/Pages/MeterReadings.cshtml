@@ -1,0 +1,148 @@
+﻿@page
+@model PrivacyModel
+@{
+    ViewData["Title"] = "Meter  Readings";
+}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload CSV File</title>
+    <style>
+        #readingsTables {
+            padding-top: 20px;
+        }
+
+        #validReadings {
+            float: left;
+            width: 49%;
+        }
+
+        #invalidReadings {
+            float: right;
+            width: 49%;
+        }
+
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 100%;
+            overflow-y: auto;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload CSV File</h2>
+    <input type="file" id="csvFileInput" accept=".csv">
+    <button onclick="uploadCSV()">Upload</button>
+
+    <div id="readingsTables" hidden>
+        <div id="validReadings">
+            <h2>Valid Readings <span id="validResultsDisplay"></span></h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Account Id</th>
+                        <th>Date Time</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="validReadingsBody">
+                </tbody>
+            </table>
+        </div>
+        <div id="invalidReadings">
+            <h2>Invalid Readings <span id="invalidResultsDisplay"></h2>
+            <table id="invalidReadingsTable">
+                <thead>
+                    <tr>
+                        <th>Input</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody id="invalidReadingsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        function uploadCSV() {
+            $("#validReadingsBody").empty();
+            $("#invalidReadingsBody").empty();
+            $("#validResultsDisplay").innerHTML = '';
+            $("#invalidResultsDisplay").innerHTML = '';
+
+            var readingsTables = document.getElementById('readingsTables');
+
+            readingsTables.setAttribute("hidden", true);
+
+            var fileInput = document.getElementById('csvFileInput');
+            var file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file.');
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('file', file);
+
+            fetch('@Constants.Endpoint.UploadEndpoint', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'text/csv',
+                },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                }).then(data => {
+                    debugger;
+                    readingsTables.removeAttribute('hidden');
+
+                    $("#validResultsDisplay").text('(' + data.validReadings + ')');
+                    $("#invalidResultsDisplay").text('(' + data.invalidReadings + ')');
+
+                    var validReadings = data.meterReadingValidationResults.filter(item => item.valid);
+                    var invalidReadings = data.meterReadingValidationResults.filter(item => !item.valid);
+
+                    var validReadingsBody = document.getElementById('validReadingsBody');
+                    validReadings.forEach(reading => {
+                        const row = `<tr>
+                                <td>${reading.meterReading.accountId}</td>
+                                <td>${reading.meterReading.dateTime}</td>
+                                <td>${reading.meterReading.value}</td></tr>`;
+                        validReadingsBody.innerHTML += row;
+                    });
+
+                    var invalidReadingsBody = document.getElementById('invalidReadingsBody');
+                    invalidReadings.forEach(reading => {
+                        var row = `<tr>
+                                <td>${reading.input}</td>
+                                <td>${reading.error}</td></tr>`;
+                        invalidReadingsBody.innerHTML += row;
+                    });
+
+                    // Display tables after successful response
+                    document.getElementById('readingsTables').style.display = 'block';
+                })
+                .catch(error => {
+                    debugger;
+                    console.error('There was a problem with the upload:', error);
+                    alert('There was a problem with the upload.');
+                });
+        }
+    </script>
+</body>
+</html>
